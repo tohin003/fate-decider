@@ -1,6 +1,16 @@
 # AI Disclosure
 
-Honest declaration of AI-tool use on this assessment. Kept current as the work proceeds; finalized before submission.
+Honest declaration of AI-tool use on this assessment.
+
+## Summary
+
+This project was built with heavy AI assistance. **Claude Code** (Anthropic's CLI
+agent) produced most of the code and prose in this repository. I directed the
+work: I made the architecture and datastore decisions, chose the idempotency,
+transaction, and isolation strategies, reviewed every change, verified the
+behavior, and can explain any line. The section below is specific about where and
+how much, so it can be checked against the git history — which is what actually
+happened, commit by commit.
 
 ## Tools used
 
@@ -9,7 +19,7 @@ Honest declaration of AI-tool use on this assessment. Kept current as the work p
 ## Where and how much
 
 - **Planning & design discussion**: AI-assisted. Requirements were distilled from the brief and the architecture/idempotency/durability approach was designed in discussion with Claude Code; I made the final calls on stack, datastore, and design trade-offs.
-- **Implementation**: AI-assisted. The scaffold (TypeScript + Fastify), the schema, the migration bootstrap, the idempotency layer (reserve-in-transaction with byte-exact replay), and all four endpoints (credit, purchase, claim, wallet-read) were written with Claude Code under my direction. I chose the datastore, the schema design, and the transaction/idempotency strategy — in particular the single atomic conditional debit for purchases — and I verified the behavior by hand (concurrent duplicates, the debit/grant atomicity, and a 10-way purchase race on one balance). _Updated as further code lands._
+- **Implementation**: AI-assisted. The scaffold (TypeScript + Fastify), the schema, the migration bootstrap, the idempotency layer (reserve-in-transaction with byte-exact replay), and all four endpoints (credit, purchase, claim, wallet-read) were written with Claude Code under my direction. I chose the datastore, the schema design, and the transaction/idempotency strategy — in particular the single atomic conditional debit for purchases — and I verified the behavior by hand (concurrent duplicates, the debit/grant atomicity, and a 10-way purchase race on one balance).
 - **Tests**: AI-assisted. The Vitest suites (contract + input safety, duplicate/exactly-once, and single-wallet concurrency) run against a real Postgres, and the `kill -9` crash/durability script (`tests/crash/crash-test.sh`) were written with Claude Code. Writing the Vitest suites surfaced two genuine bugs — AJV was coercing `"100"` to `100` and accepting unknown fields — which I then fixed with strict validation. The crash test drives concurrent load through repeated hard kills and asserts nothing is lost or duplicated. I reviewed and understand every test.
 - **Docker packaging**: AI-assisted. The multi-stage Dockerfile and the
   docker-compose setup were written with Claude Code; I verified the full stack
