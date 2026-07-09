@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
-import { creditSchema, getWalletSchema } from "../validation.js";
+import { creditSchema, purchaseSchema, getWalletSchema } from "../validation.js";
 import { idempotencyContext, runIdempotent } from "../idempotency.js";
-import { creditEffect, readWallet } from "../services/economy.js";
+import { creditEffect, purchaseEffect, readWallet } from "../services/economy.js";
 
 interface PlayerParams {
   playerId: string;
@@ -9,6 +9,10 @@ interface PlayerParams {
 interface CreditBody {
   amount: number;
   reason: string;
+}
+interface PurchaseBody {
+  itemId: string;
+  price: number;
 }
 
 export function registerWalletRoutes(app: FastifyInstance): void {
@@ -26,6 +30,23 @@ export function registerWalletRoutes(app: FastifyInstance): void {
 
       if (outcome.replayed) reply.header("Idempotency-Replayed", "true");
       // Send the pre-serialized bytes so a replay is byte-identical to the original.
+      return reply.code(outcome.status).type("application/json").send(outcome.bodyText);
+    },
+  );
+
+  app.post<{ Params: PlayerParams; Body: PurchaseBody }>(
+    "/v1/wallets/:playerId/purchase",
+    { schema: purchaseSchema },
+    async (req, reply) => {
+      const { playerId } = req.params;
+      const { itemId, price } = req.body;
+      const ctx = idempotencyContext(req);
+
+      const outcome = await runIdempotent(app.db, ctx, (client) =>
+        purchaseEffect(client, playerId, itemId, price, ctx.key),
+      );
+
+      if (outcome.replayed) reply.header("Idempotency-Replayed", "true");
       return reply.code(outcome.status).type("application/json").send(outcome.bodyText);
     },
   );

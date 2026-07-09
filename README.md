@@ -28,14 +28,31 @@ curl -X POST localhost:3000/v1/wallets/player1/credit \
 # → {"playerId":"player1","balance":100}
 ```
 
+**Purchase an item** (atomic debit + grant; insufficient funds is rejected with
+no partial effect):
+
+```bash
+curl -X POST localhost:3000/v1/wallets/player1/purchase \
+  -H 'Content-Type: application/json' \
+  -d '{"itemId": "sword", "price": 30}'
+# → {"playerId":"player1","balance":70,"itemId":"sword"}
+```
+
+**Claim a one-time reward** (once per player):
+
+```bash
+curl -X POST localhost:3000/v1/rewards/daily_bonus/claim \
+  -H 'Content-Type: application/json' \
+  -d '{"playerId": "player1"}'
+# → {"playerId":"player1","rewardId":"daily_bonus","claimed":true}
+```
+
 **Read wallet state** (read-only; unknown player returns the zero state):
 
 ```bash
 curl localhost:3000/v1/wallets/player1
-# → {"balance":100,"inventory":[],"claimedRewards":[]}
+# → {"balance":70,"inventory":["sword"],"claimedRewards":["daily_bonus"]}
 ```
-
-Purchase and claim examples are added as those endpoints land.
 
 ## Running the tests
 

@@ -62,6 +62,33 @@ export const creditSchema = {
   },
 } as const;
 
+export const purchaseSchema = {
+  params: playerIdParams,
+  headers: idempotencyHeaders,
+  body: {
+    type: "object",
+    additionalProperties: false,
+    required: ["itemId", "price"],
+    properties: {
+      itemId: idSchema,
+      price: amountSchema,
+    },
+  },
+} as const;
+
+export const claimSchema = {
+  params: rewardIdParams,
+  headers: idempotencyHeaders,
+  body: {
+    type: "object",
+    additionalProperties: false,
+    required: ["playerId"],
+    properties: {
+      playerId: idSchema,
+    },
+  },
+} as const;
+
 export const getWalletSchema = {
   params: playerIdParams,
 } as const;

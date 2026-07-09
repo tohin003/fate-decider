@@ -2,6 +2,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 import type { Pool } from "./db/pool.js";
 import { registerErrorHandler } from "./errors.js";
 import { registerWalletRoutes } from "./routes/wallets.js";
+import { registerRewardRoutes } from "./routes/rewards.js";
 
 export interface AppDeps {
   pool: Pool;
@@ -34,6 +35,7 @@ export function buildApp(deps: AppDeps): FastifyInstance {
   });
 
   registerWalletRoutes(app);
+  registerRewardRoutes(app);
 
   return app;
 }
