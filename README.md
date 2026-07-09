@@ -56,7 +56,21 @@ curl localhost:3000/v1/wallets/player1
 
 ## Running the tests
 
-**TBD** — unit/integration suites and the crash/restart test.
+The tests run against a **real Postgres** (the money paths are not mocked). Start
+the database, then run the suite — it uses a dedicated `fate_decider_test`
+database, created automatically, so your dev data is untouched.
+
+```bash
+docker compose up -d db      # Postgres on host port 5433
+npm install
+npm test
+```
+
+The suites cover the contract and input safety (`tests/api.test.ts`),
+exactly-once under duplicate and concurrent-duplicate requests
+(`tests/duplicates.test.ts`), and concurrency races on a single wallet
+(`tests/concurrency.test.ts`). Override the target database with
+`TEST_DATABASE_URL` if needed.
 
 ## Repository documents
 
