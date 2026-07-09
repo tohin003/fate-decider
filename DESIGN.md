@@ -69,7 +69,58 @@ survives in the volume, the schema is simply re-asserted.
 
 ## 3. Exactly-once: deduplication strategy
 
-**TBD** — how a duplicate request is identified, how the dedup record relates transactionally to the effect, what a duplicate receives in response, conflict handling, and **how long keys are retained**.
+Implemented in `src/idempotency.ts` and exercised by every mutating route.
+
+**Identifying a duplicate.** Each mutating request is reduced to an identity of
+`(key, scope, requestHash)`:
+- `scope` = `"METHOD /concrete/path"` (e.g. `POST /v1/wallets/p1/credit`). This
+  namespaces a key to one operation on one resource, so the same key used for
+  two different players — or two different endpoints — never collides.
+- `requestHash` = SHA-256 of the **canonical** request body (object keys sorted
+  recursively), so logically-identical bodies hash equally.
+- `key` = the client's `Idempotency-Key` header when supplied, otherwise the
+  `requestHash` itself. The fallback means a byte-identical retry with no header
+  still deduplicates — which is exactly what a naive client or test retry sends.
+
+**How the key is tied to the effect (the crucial part).** The key row is
+reserved and finalised **inside the same transaction as the effect**:
+
+```
+BEGIN
+  INSERT INTO idempotency_keys (key, scope, request_hash, ...)
+    VALUES (...) ON CONFLICT (key, scope) DO NOTHING     -- reserve
+  -- if reserved (1 row): run the effect, then
+  UPDATE idempotency_keys SET response_status=…, response_body=… WHERE …
+COMMIT
+```
+
+Because the reservation and the effect share one transaction, they commit or
+roll back together. There is no window in which the effect is durable but the
+key is not, or vice versa.
+
+**Concurrent duplicates.** `INSERT … ON CONFLICT DO NOTHING` makes a second,
+concurrent request with the same key **block on the unique index** until the
+first transaction finishes. If the first commits, the second sees `rowCount = 0`,
+reads the now-committed row, and replays it — it never runs the effect. If the
+first rolls back, the second's insert succeeds and it becomes the owner. So only
+one request ever applies the effect; the rest replay. Verified: 20 concurrent
+identical credits yield exactly one ledger row and one final balance.
+
+**What a duplicate receives.** The stored response is replayed **byte-for-byte**
+(the response body is kept in a `json` column, which preserves the exact text),
+with an added `Idempotency-Replayed: true` header. Business failures are stored
+too — a retried insufficient-funds purchase replays the identical rejection, not
+a fresh attempt.
+
+**Key reuse with a different body.** If a key already exists but the new
+request's `requestHash` differs, the service returns `422 IDEMPOTENCY_KEY_REUSED`
+and applies nothing — it refuses to guess which request the caller meant.
+
+**Retention.** Idempotency rows are pruned after `IDEMPOTENCY_TTL_HOURS`
+(default 24h) by a periodic sweep (`pruneExpiredKeys`, scheduled in
+`server.ts`). Retention only bounds how long a *replay* is available; it does
+**not** weaken claim-once, which is enforced permanently by the `reward_claims`
+natural key, independent of idempotency keys.
 
 ## 4. Atomicity, durability & isolation
 
@@ -77,7 +128,46 @@ survives in the volume, the schema is simply re-asserted.
 
 ## 5. API contract details
 
-**TBD** — chosen status codes, exact success/error response bodies, currency units, and input limits.
+The mandated wire shape is unchanged; documented here are the choices left to us.
+Purchase and claim rows are added as those endpoints land.
+
+**Currency units.** Balances, amounts, and prices are non-negative **integers**
+in a single unbounded in-game currency (no decimals, no separate denominations).
+
+**Endpoints implemented so far.**
+
+| Method & path | Success | Body |
+|---|---|---|
+| `POST /v1/wallets/{playerId}/credit` | `200` | `{ "playerId": str, "balance": int }` |
+| `GET /v1/wallets/{playerId}` | `200` | `{ "balance": int, "inventory": [itemId…], "claimedRewards": [rewardId…] }` |
+
+- `GET` on an unknown player returns `200` with the zero state
+  (`balance: 0`, empty lists) rather than `404`, so black-box assertions don't
+  need to special-case "never seen before".
+- `inventory` is a flat list of `itemId` strings in acquisition order; a player
+  who owns the same item twice sees it listed twice. `claimedRewards` is the
+  sorted list of claimed `rewardId`s.
+
+**Error envelope.** Every failure is `{ "error": { "code": str, "message": str } }`.
+
+| Status | Code | When |
+|---|---|---|
+| `400` | `VALIDATION_ERROR` | Malformed JSON, missing/extra field, wrong type, negative/zero/overflowing amount, bad id |
+| `413` | `PAYLOAD_TOO_LARGE` | Body exceeds 16 KB |
+| `415` | `UNSUPPORTED_MEDIA_TYPE` | Missing/incorrect `Content-Type` on a body route |
+| `422` | `IDEMPOTENCY_KEY_REUSED` | Same idempotency key, different body |
+| `404` | `NOT_FOUND` | Unknown route |
+| `500` | `INTERNAL` | Unexpected server error |
+
+**Limits** (`src/validation.ts`, rejected at the boundary before any DB work):
+
+| Limit | Value |
+|---|---|
+| Max amount / price | `1_000_000_000` |
+| id charset & length (`playerId`/`itemId`/`rewardId`) | `^[A-Za-z0-9_-]{1,64}$` |
+| `reason` max length | 256 |
+| `Idempotency-Key` max length | 200 |
+| Request body max size | 16 KB |
 
 ## 6. Deliberate decisions & trade-offs
 

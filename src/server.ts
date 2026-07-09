@@ -1,6 +1,7 @@
 import { loadConfig } from "./config.js";
 import { createPool } from "./db/pool.js";
 import { migrate } from "./db/migrate.js";
+import { pruneExpiredKeys } from "./idempotency.js";
 import { buildApp } from "./app.js";
 
 /**
@@ -14,8 +15,18 @@ async function main(): Promise<void> {
   await migrate(pool);
   const app = buildApp({ pool });
 
+  // Retention: periodically drop idempotency rows past the TTL. Claim-once is
+  // permanent (reward_claims), so it is unaffected by this cleanup.
+  const pruneTimer = setInterval(() => {
+    pruneExpiredKeys(pool, config.idempotencyTtlHours).catch((err) =>
+      app.log.warn({ err }, "idempotency prune failed"),
+    );
+  }, 60 * 60 * 1000);
+  pruneTimer.unref();
+
   const shutdown = async (signal: string): Promise<void> => {
     app.log.info({ signal }, "shutting down");
+    clearInterval(pruneTimer);
     await app.close();
     await pool.end();
     process.exit(0);

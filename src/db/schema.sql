@@ -62,7 +62,9 @@ CREATE TABLE IF NOT EXISTS idempotency_keys (
     scope           TEXT NOT NULL,            -- "METHOD path", namespaces a key to one operation
     request_hash    TEXT NOT NULL,            -- SHA-256 of the canonical request body
     response_status INT  NOT NULL,
-    response_body   JSONB NOT NULL,
+    -- `json` (not `jsonb`) preserves the exact response text, so a replay is
+    -- byte-for-byte identical to the original response, key order included.
+    response_body   JSON NOT NULL,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (key, scope)
 );

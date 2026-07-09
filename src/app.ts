@@ -1,5 +1,7 @@
 import Fastify, { type FastifyInstance } from "fastify";
 import type { Pool } from "./db/pool.js";
+import { registerErrorHandler } from "./errors.js";
+import { registerWalletRoutes } from "./routes/wallets.js";
 
 export interface AppDeps {
   pool: Pool;
@@ -22,14 +24,16 @@ export function buildApp(deps: AppDeps): FastifyInstance {
     },
   });
 
-  // Expose the pool to route handlers registered in later phases.
+  // Expose the pool to route handlers.
   app.decorate("db", deps.pool);
 
+  registerErrorHandler(app);
+
   app.get("/health", async () => {
-    // Liveness only for now; a readiness probe that pings the DB is added
-    // once the pool is exercised by real routes.
     return { status: "ok" };
   });
+
+  registerWalletRoutes(app);
 
   return app;
 }
