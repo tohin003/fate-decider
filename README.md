@@ -6,11 +6,23 @@ A durable wallet/economy service for a game: players earn currency, spend it in 
 
 ## Requirements
 
-**TBD** — Docker / docker-compose versions.
+- Docker with Compose v2 (`docker compose …`). That is all you need to run the
+  service.
+- For running the tests locally without Docker for the app: Node.js 22+.
 
 ## Build & run
 
-**TBD** — exact `docker compose` commands.
+```bash
+docker compose up --build
+```
+
+This builds the service image and starts two containers — the wallet service and
+Postgres 16. The service listens on **http://localhost:3000**; Postgres is
+published on host port **5433** (off the default 5432 to avoid clashing with a
+local Postgres). The schema is applied automatically on startup, and a named
+volume persists the data across restarts.
+
+Stop with `docker compose down`; add `-v` to also discard the data volume.
 
 ## API
 

@@ -1,9 +1,27 @@
-# Postgres for the wallet service.
+# The wallet service and its Postgres.
 #
 # The named volume persists the database across container restarts, which is
 # what makes the crash test meaningful: a `kill -9` and restart must find every
-# committed operation intact. The app service is added in a later phase.
+# committed operation intact.
 services:
+  app:
+    build: .
+    environment:
+      DATABASE_URL: postgres://fate:fate@db:5432/fate_decider
+      PORT: "3000"
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      # 127.0.0.1, not localhost: the app binds IPv4 and localhost resolves to
+      # IPv6 (::1) first inside the container.
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   db:
     image: postgres:16-alpine
     environment:
