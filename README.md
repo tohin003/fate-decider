@@ -84,6 +84,20 @@ exactly-once under duplicate and concurrent-duplicate requests
 (`tests/concurrency.test.ts`). Override the target database with
 `TEST_DATABASE_URL` if needed.
 
+### Crash / durability test
+
+`tests/crash/crash-test.sh` drives concurrent credits and purchases while
+`SIGKILL`-ing the app container several times mid-flight, restarts it, re-sends
+every attempted request with its original idempotency key, and asserts that
+nothing was lost or duplicated (balance and ledger match the distinct-key count,
+`balance == SUM(ledger)` for every wallet, no purchase debit without its grant,
+no negative balances).
+
+```bash
+docker compose up --build -d
+./tests/crash/crash-test.sh          # add KILL_DB=1 to also SIGKILL Postgres
+```
+
 ## Repository documents
 
 - [`DESIGN.md`](DESIGN.md) — architecture, datastore choice, exactly-once & durability strategy, API details, limits
