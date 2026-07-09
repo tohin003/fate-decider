@@ -20,6 +20,15 @@ export function buildApp(deps: AppDeps): FastifyInstance {
     // Reject bodies larger than our documented limit at the framework edge,
     // before any handler or JSON parse work happens.
     bodyLimit: 16 * 1024,
+    ajv: {
+      customOptions: {
+        // Strict boundary: never coerce "100" into 100, never silently drop or
+        // accept unexpected fields. Malformed input is rejected, not massaged.
+        coerceTypes: false,
+        removeAdditional: false,
+        useDefaults: false,
+      },
+    },
     logger: {
       level: process.env.LOG_LEVEL ?? "info",
     },

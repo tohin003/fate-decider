@@ -84,6 +84,12 @@ Implemented in `src/idempotency.ts` and exercised by every mutating route.
 - `key` = the client's `Idempotency-Key` header when supplied, otherwise the
   `requestHash` itself. The fallback means a byte-identical retry with no header
   still deduplicates — which is exactly what a naive client or test retry sends.
+  The corollary: to perform two *intentional* identical operations (buy the same
+  item twice, two separate payouts of the same amount), send two **distinct**
+  `Idempotency-Key` headers. Without a key, byte-identical requests are treated
+  as retries of one operation and collapsed. This is the safe default — it
+  prioritises "a retry never double-spends" over "identical requests always
+  stack".
 
 **How the key is tied to the effect (the crucial part).** The key row is
 reserved and finalised **inside the same transaction as the effect**:
@@ -214,6 +220,9 @@ Either way the grant happens exactly once.
 | `422` | `IDEMPOTENCY_KEY_REUSED` | Same idempotency key, different body |
 | `404` | `NOT_FOUND` | Unknown route |
 | `500` | `INTERNAL` | Unexpected server error |
+
+Validation is **strict**: types are never coerced (`"100"` is rejected, not read
+as `100`), and unexpected body fields are rejected rather than ignored.
 
 **Limits** (`src/validation.ts`, rejected at the boundary before any DB work):
 
