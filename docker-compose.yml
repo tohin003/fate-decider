@@ -1,0 +1,27 @@
+# Postgres for the wallet service.
+#
+# The named volume persists the database across container restarts, which is
+# what makes the crash test meaningful: a `kill -9` and restart must find every
+# committed operation intact. The app service is added in a later phase.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: fate
+      POSTGRES_PASSWORD: fate
+      POSTGRES_DB: fate_decider
+    ports:
+      # Host 5433 -> container 5432, deliberately off the default 5432 so this
+      # never clashes with a Postgres already running on the host machine.
+      # Inside the compose network the app still reaches it at db:5432.
+      - "5433:5432"
+    volumes:
+      - fate-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fate -d fate_decider"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  fate-db-data:

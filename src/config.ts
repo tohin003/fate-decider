@@ -30,7 +30,7 @@ export function loadConfig(): Config {
     port: intFromEnv("PORT", 3000),
     databaseUrl:
       process.env.DATABASE_URL ??
-      "postgres://fate:fate@localhost:5432/fate_decider",
+      "postgres://fate:fate@localhost:5433/fate_decider",
     idempotencyTtlHours: intFromEnv("IDEMPOTENCY_TTL_HOURS", 24),
   };
 }

@@ -9,7 +9,7 @@ Honest declaration of AI-tool use on this assessment. Kept current as the work p
 ## Where and how much
 
 - **Planning & design discussion**: AI-assisted. Requirements were distilled from the brief and the architecture/idempotency/durability approach was designed in discussion with Claude Code; I made the final calls on stack, datastore, and design trade-offs.
-- **Implementation**: _in progress — this section is updated as the code is written._
+- **Implementation**: AI-assisted. The scaffold (TypeScript + Fastify), the database schema, and the migration bootstrap were written with Claude Code under my direction; I chose the datastore, the schema design, and the transaction strategy. _Updated as further code lands._
 - **Tests**: _in progress._
 - **Documentation** (README, DESIGN, RESILIENCE): _in progress._
 
