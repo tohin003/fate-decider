@@ -24,6 +24,10 @@ volume persists the data across restarts.
 
 Stop with `docker compose down`; add `-v` to also discard the data volume.
 
+Once it is up, `./scripts/demo.sh` runs a short end-to-end walkthrough (credit,
+purchase, rejected purchase, claim, idempotent retry, and an invalid input)
+against the live service.
+
 ## API
 
 Full contract details (status codes, limits, error envelope) are in
