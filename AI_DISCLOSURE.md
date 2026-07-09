@@ -16,7 +16,9 @@ Honest declaration of AI-tool use on this assessment. Kept current as the work p
   runs and diagnosed a healthcheck issue (the container's `localhost` resolving
   to IPv6 while the app binds IPv4).
 - **Documentation** (README, DESIGN, RESILIENCE): AI-assisted drafting under my
-  direction, kept in lock-step with the code. _RESILIENCE.md in progress._
+  direction, written in lock-step with the code so no document claims behavior
+  the code does not implement. The design decisions, the resilience strategy
+  (outbox + saga, ledger-based reconciliation), and the trade-offs are mine.
 
 ## My role
 

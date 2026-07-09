@@ -1,7 +1,5 @@
 # Design
 
-> This document grows alongside the implementation — each section is filled in the same change as the code it describes. Sections marked **TBD** describe code that does not exist yet.
-
 ## 1. Overview & architecture
 
 The service is a stateless HTTP layer over a single Postgres database. All durable
@@ -236,4 +234,25 @@ as `100`), and unexpected body fields are rejected rather than ignored.
 
 ## 6. Deliberate decisions & trade-offs
 
-**TBD** — the under-specified calls the brief leaves open (key retention, ledger representation, error codes, limits, catalog vs request-priced purchases), each with a decision and its trade-off.
+The brief leaves several things intentionally under-specified. Each was decided,
+implemented, and justified above; this is the consolidated list.
+
+| Decision | Choice | Trade-off / why |
+|---|---|---|
+| **Datastore** | PostgreSQL 16 (§2) | Real transactions, row locks, constraints, WAL durability. Heavier than SQLite, but the honest production choice for money. |
+| **Isolation level** | READ COMMITTED (§4) | Sufficient because invariants live in atomic statements + constraints, not read-then-write. Avoids SERIALIZABLE's retry loops. |
+| **Dedup mechanism** | `Idempotency-Key` header, else SHA-256 body fingerprint (§3) | Works even for a client that doesn't send a key; the cost is that two *intentional* identical operations need distinct keys. |
+| **Key retention** | 24h, configurable (`IDEMPOTENCY_TTL_HOURS`); claim-once is permanent (§3) | Bounds storage; replay window is finite, but claim-once never weakens (it lives in `reward_claims`). |
+| **Ledger representation** | Append-only, signed `amount`; `SUM == balance` invariant (§2) | Full audit trail and the basis for reconciliation; costs one extra insert per mutation. |
+| **Response replay fidelity** | Byte-for-byte (`json` column, pre-serialized body) (§3) | A replay is indistinguishable from the original; a hair more code than re-serializing. |
+| **Purchase pricing** | Price comes from the request; **no server-side catalog** (§5) | The mandated contract carries `price`; a real system would validate against a catalog. The server still owns all balance math, so a client cannot pay less than it claims. |
+| **Reward model** | Claim-once *record*; no attached currency/item (§5) | The claim body names no reward contents and there is no catalog; a production system resolves `rewardId` against a reward catalog. |
+| **Unknown player on GET** | `200` zero-state, not `404` (§5) | Makes black-box assertions order-independent; the cost is `GET` never signals "unseen". |
+| **Validation** | Strict — no type coercion, unknown fields rejected (§5) | Malformed input is refused, not massaged. Slightly less lenient to sloppy clients, by design. |
+| **Error codes** | `409` for both `INSUFFICIENT_FUNDS` and `ALREADY_CLAIMED`; `422` for key reuse (§5) | Both are state conflicts; `422` distinguishes "same key, different body" from a normal conflict. |
+
+**Known limits / out of scope.** No authentication or rate limiting (accounts
+are out of scope per the brief). Balances are bounded by `int8` and the per-amount
+ceiling of 1e9. The idempotency prune runs in-process on an interval; a
+multi-instance deployment would move it to a single scheduled job. None of these
+affect the correctness guarantees.
